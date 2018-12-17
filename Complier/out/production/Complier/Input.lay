@@ -1,5 +1,10 @@
-PRINT "ABCDEFGH"
-PRINT "aaaaaaaa"
-PRINT 10 + 909
-PRINT 10 + 909
-PRINT 10 + 909
+PRINT "A"
+$VAR = "hgjhg"
+$VAA = 40 + 2
+$VAB = "hgjhg"
+PRINT $VAB
+PRINT $VAA
+$a = $VAA
+PRINT $a
+INPUT "Enter your name" $aa
+PRINT $aa

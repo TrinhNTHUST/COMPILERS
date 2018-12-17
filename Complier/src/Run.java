@@ -1,13 +1,17 @@
+import javax.script.ScriptEngine;
+import javax.script.ScriptEngineManager;
+import javax.script.ScriptException;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Paths;
-import java.util.ArrayList;
-import java.util.List;
+import java.security.Key;
+import java.util.*;
 
 public class Run {
     private static final String SOURCE_FILE_NAME = "/Users/toring/Desktop/test/Complier/src/Input.lay";
 
     private static List<String> tokens = new ArrayList();
+    private static Map<String, String> symbols = new HashMap<>();
 
     private static String readFile() {
         String data = "";
@@ -29,6 +33,9 @@ public class Run {
         String number = "";
         int isexpr = 0;
 
+        int varStarted = 0;
+        String var = "";
+
         char[] fileContents = data.toCharArray();
         for (Character c : fileContents) {
             token = token + c;
@@ -45,15 +52,44 @@ public class Run {
                 } else if (!expr.equals("") && isexpr == 0) {
                     tokens.add("NUM:" + expr);
                     expr = "";
+                } else if (!var.equals("")) {
+                    tokens.add("VAR:" + var);
+                    var = "";
+                    varStarted = 0;
                 }
+                token = "";
+            } else if (token.equals("=") && state == 0) {
+                if (!var.equals("")) {
+                    tokens.add("VAR:" + var);
+                    var = "";
+                    varStarted = 0;
+                }
+                tokens.add("EQUALS");
+                token = "";
+            } else if (token.equals("$") && state == 0) {
+                varStarted = 1;
+                var = var + token;
+                token = "";
+            } else if (varStarted == 1) {
+                if (token.equals("<") || token.equals(">")) {
+                    if (var != "") {
+                        tokens.add("VAR:" + var);
+                        var = "";
+                        varStarted = 0;
+                    }
+                }
+                var = var + token;
                 token = "";
             } else if (token.equals(Keyword.KEY_PRINT) || token.equals(Keyword.KEY_PRINT.toLowerCase())) {
                 tokens.add(Keyword.KEY_PRINT);
                 token = "";
+            } else if (token.equals(Keyword.KEY_INPUT) || token.equals(Keyword.KEY_INPUT.toLowerCase())) {
+                tokens.add(Keyword.KEY_INPUT);
+                token = "";
             } else if (Character.isDigit(token.charAt(0))) {
                 expr = expr + token;
                 token = "";
-            } else if (token.equals("+")) {
+            } else if (token.equals("+") || token.equals("-") || token.equals("*") || token.equals("/") || token.equals("%")) {
                 isexpr = 1;
                 expr = expr + token;
                 token = "";
@@ -71,32 +107,122 @@ public class Run {
                 token = "";
             }
         }
+        System.out.println(tokens);
         return tokens;
     }
 
     private static void parse(List<String> tokens) {
-        System.out.println(tokens);
         int i = 0;
         while (i < tokens.size()) {
             if ((tokens.get(i) + " " + tokens.get(i + 1).substring(0, 6)).equals(Keyword.KEY_PRINT + " " + "STRING")
                     || (tokens.get(i) + " " + tokens.get(i + 1).substring(0, 4)).equals(Keyword.KEY_PRINT + " " + "EXPR")
-                    || (tokens.get(i) + " " + tokens.get(i + 1).substring(0, 3 )).equals(Keyword.KEY_PRINT + " " + "NUM")) {
-                doPrint(tokens.get(i+1));
-                i+= 2;
+                    || (tokens.get(i) + " " + tokens.get(i + 1).substring(0, 3)).equals(Keyword.KEY_PRINT + " " + "NUM")
+                    || (tokens.get(i) + " " + tokens.get(i + 1).substring(0, 3)).equals(Keyword.KEY_PRINT + " " + "VAR")) {
+
+                String string = tokens.get(i + 1);
+                String value = "";
+                if (string.substring(0, 6).equals("STRING")) {
+                    value = string;
+                } else if (string.substring(0, 3).equals("NUM")) {
+                    value = string;
+                } else if (string.substring(0, 4).equals("EXPR")) {
+                    value = string;
+                    value = "NUM:" + evalExpression(value.substring(5));
+                } else if (string.substring(0, 3).equals("VAR")) {
+                    value = getVARIABLE(string);
+                }
+                doPrint(value);
+
+                i += 2;
+            } else if ((tokens.get(i).substring(0, 3) + " " + tokens.get(i + 1) + " " + tokens.get(i + 2).substring(0, 6)).equals("VAR EQUALS STRING")
+                    || (tokens.get(i).substring(0, 3) + " " + tokens.get(i + 1) + " " + tokens.get(i + 2).substring(0, 4)).equals("VAR EQUALS EXPR")
+                    || (tokens.get(i).substring(0, 3) + " " + tokens.get(i + 1) + " " + tokens.get(i + 2).substring(0, 3)).equals("VAR EQUALS NUM")
+                    || (tokens.get(i).substring(0, 3) + " " + tokens.get(i + 1) + " " + tokens.get(i + 2).substring(0, 3)).equals("VAR EQUALS VAR")) {
+
+                String varValue = tokens.get(i + 2);
+                String value = "";
+                if (varValue.substring(0, 6).equals("STRING")) {
+                    value = varValue;
+                } else if (varValue.substring(0, 3).equals("NUM")) {
+                    value = varValue;
+                } else if (varValue.substring(0, 4).equals("EXPR")) {
+                    value = "NUM:" + evalExpression(varValue);
+                } else if (varValue.substring(0, 3).equals("VAR")) {
+                    value = getVARIABLE(varValue);
+                }
+                doAssign(tokens.get(i).substring(4), value);
+
+                i += 3;
+            } else if ((tokens.get(i) + " " + tokens.get(i + 1).substring(0, 6) + " " + tokens.get(i + 2).substring(0, 3)).equals("INPUT STRING VAR")
+                    || (tokens.get(i) + " " + tokens.get(i + 1).substring(0, 6) + " " + tokens.get(i + 2).substring(0, 4)).equals("VAR EQUALS EXPR")
+                    || (tokens.get(i) + " " + tokens.get(i + 1).substring(0, 6) + " " + tokens.get(i + 2).substring(0, 3)).equals("VAR EQUALS NUM")
+                    || (tokens.get(i) + " " + tokens.get(i + 1).substring(0, 6) + " " + tokens.get(i + 2).substring(0, 3)).equals("VAR EQUALS VAR")) {
+                getINPUT(tokens.get(i + 1).substring(7), tokens.get(i + 2).substring(4));
+                i += 3;
             }
         }
     }
 
-    private static void doPrint(String string) {
-        String s = "";
-        if (string.substring(0, 6).equals("STRING")) {
-            s = string.substring(7);
-        } else if (string.substring(0, 3).equals("NUM")) {
-            s = string.substring(4);
-        } else if (string.substring(0, 4).equals("EXPR")) {
-            s = string.substring(5);
+    private static String getVARIABLE(String string) {
+        String varName = string.substring(4);
+        return symbols.getOrDefault(varName, "Undefine Variable");
+    }
+
+    private static void getINPUT(String string, String varName) {
+        System.out.println(string);
+        Scanner scanner = new Scanner(System.in);
+        String input = scanner.nextLine();
+        symbols.put(varName, "STRING:\"" + input + "\"");
+    }
+
+    private static void doPrint(String value) {
+        String result = "";
+        if (value.substring(0, 3).equals("NUM")) {
+            result = value.substring(4);
+        } else if (value.substring(0, 3).equals("VAR")) {
+            result = getVARIABLE(value);
+        } else if (value.substring(0, 6).equals("STRING")) {
+            result = value.substring(8, value.length() - 1);
         }
-        System.out.println(s);
+        System.out.println(result);
+    }
+
+    private static void doAssign(String varName, String varValue) {
+        symbols.put(varName, varValue);
+    }
+
+    private static String evalExpression(String expr) {
+//        expr = "," + expr;
+//
+//        String num = "";
+//        List<String> numStack = new ArrayList<>();
+//
+//        int i = expr.length() - 1;
+//        while (i >= 0) {
+//            if (expr.charAt(i) == '+' || expr.charAt(i) == '-'
+//                    || expr.charAt(i) == '*' || expr.charAt(i) == '/' || expr.charAt(i) == '%') {
+//                numStack.add(num);
+//                numStack.add(String.valueOf(expr.charAt(i)));
+//                num = "";
+//            }else if(String.valueOf(expr.charAt(i)).equals(",")){
+//                numStack.add(num);
+//                num = "";
+//            }else{
+//                num = num + String.valueOf(expr.charAt(i));
+//            }
+//            i --;
+//        }
+//        System.out.println(numStack);
+
+        String result = "";
+        ScriptEngineManager mgr = new ScriptEngineManager();
+        ScriptEngine engine = mgr.getEngineByName("JavaScript");
+        try {
+            result = String.valueOf(engine.eval(expr));
+        } catch (ScriptException e) {
+            e.printStackTrace();
+        }
+        return result;
     }
 
     public static void main(String[] args) {
