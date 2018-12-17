@@ -1,3 +1,6 @@
+IF 1 == 2 THEN
+    PRINT "aaaa"
+ENDIF
 PRINT "A"
 $VAR = "hgjhg"
 $VAA = 40 + 2

@@ -59,12 +59,20 @@ public class Run {
                 }
                 token = "";
             } else if (token.equals("=") && state == 0) {
+                if (!expr.equals("") && isexpr == 0) {
+                    tokens.add("NUM:" + expr);
+                    expr = "";
+                }
                 if (!var.equals("")) {
                     tokens.add("VAR:" + var);
                     var = "";
                     varStarted = 0;
                 }
-                tokens.add("EQUALS");
+                if (tokens.get(tokens.size() - 1).equals("EQUALS")) {
+                    tokens.set(tokens.size() - 1, "EQEQ");
+                } else {
+                    tokens.add("EQUALS");
+                }
                 token = "";
             } else if (token.equals("$") && state == 0) {
                 varStarted = 1;
@@ -83,6 +91,19 @@ public class Run {
             } else if (token.equals(Keyword.KEY_PRINT) || token.equals(Keyword.KEY_PRINT.toLowerCase())) {
                 tokens.add(Keyword.KEY_PRINT);
                 token = "";
+            } else if (token.equals(Keyword.KEY_ENDIF) || token.equals(Keyword.KEY_ENDIF.toLowerCase())) {
+                tokens.add(Keyword.KEY_ENDIF);
+                token = "";
+            } else if (token.equals(Keyword.KEY_IF) || token.equals(Keyword.KEY_IF.toLowerCase())) {
+                tokens.add(Keyword.KEY_IF);
+                token = "";
+            } else if (token.equals(Keyword.KEY_THEN) || token.equals(Keyword.KEY_THEN.toLowerCase())) {
+                if (!expr.equals("") && isexpr == 0) {
+                    tokens.add("NUM:" + expr);
+                    expr = "";
+                }
+                tokens.add(Keyword.KEY_THEN);
+                token = "";
             } else if (token.equals(Keyword.KEY_INPUT) || token.equals(Keyword.KEY_INPUT.toLowerCase())) {
                 tokens.add(Keyword.KEY_INPUT);
                 token = "";
@@ -92,6 +113,8 @@ public class Run {
             } else if (token.equals("+") || token.equals("-") || token.equals("*") || token.equals("/") || token.equals("%")) {
                 isexpr = 1;
                 expr = expr + token;
+                token = "";
+            } else if (token.equals("\t")) {
                 token = "";
             } else if (token.equals("\"")) {
                 if (state == 0) {
@@ -114,10 +137,12 @@ public class Run {
     private static void parse(List<String> tokens) {
         int i = 0;
         while (i < tokens.size()) {
-            if ((tokens.get(i) + " " + tokens.get(i + 1).substring(0, 6)).equals(Keyword.KEY_PRINT + " " + "STRING")
-                    || (tokens.get(i) + " " + tokens.get(i + 1).substring(0, 4)).equals(Keyword.KEY_PRINT + " " + "EXPR")
-                    || (tokens.get(i) + " " + tokens.get(i + 1).substring(0, 3)).equals(Keyword.KEY_PRINT + " " + "NUM")
-                    || (tokens.get(i) + " " + tokens.get(i + 1).substring(0, 3)).equals(Keyword.KEY_PRINT + " " + "VAR")) {
+            if (tokens.get(i).equals(Keyword.KEY_ENDIF)) {
+                i++;
+            } else if (((tokens.get(i + 1).length() >= 7) && (tokens.get(i) + " " + tokens.get(i + 1).substring(0, 6)).equals(Keyword.KEY_PRINT + " " + "STRING"))
+                    || ((tokens.get(i + 1).length() >= 5) && (tokens.get(i) + " " + tokens.get(i + 1).substring(0, 4)).equals(Keyword.KEY_PRINT + " " + "EXPR"))
+                    || ((tokens.get(i + 1).length() >= 4) && (tokens.get(i) + " " + tokens.get(i + 1).substring(0, 3)).equals(Keyword.KEY_PRINT + " " + "NUM"))
+                    || ((tokens.get(i + 1).length() >= 4) && (tokens.get(i) + " " + tokens.get(i + 1).substring(0, 3)).equals(Keyword.KEY_PRINT + " " + "VAR"))) {
 
                 String string = tokens.get(i + 1);
                 String value = "";
@@ -134,10 +159,10 @@ public class Run {
                 doPrint(value);
 
                 i += 2;
-            } else if ((tokens.get(i).substring(0, 3) + " " + tokens.get(i + 1) + " " + tokens.get(i + 2).substring(0, 6)).equals("VAR EQUALS STRING")
-                    || (tokens.get(i).substring(0, 3) + " " + tokens.get(i + 1) + " " + tokens.get(i + 2).substring(0, 4)).equals("VAR EQUALS EXPR")
-                    || (tokens.get(i).substring(0, 3) + " " + tokens.get(i + 1) + " " + tokens.get(i + 2).substring(0, 3)).equals("VAR EQUALS NUM")
-                    || (tokens.get(i).substring(0, 3) + " " + tokens.get(i + 1) + " " + tokens.get(i + 2).substring(0, 3)).equals("VAR EQUALS VAR")) {
+            } else if (((tokens.get(i).length() >= 4 && tokens.get(i + 2).length() >= 7) && (tokens.get(i).substring(0, 3) + " " + tokens.get(i + 1) + " " + tokens.get(i + 2).substring(0, 6)).equals("VAR EQUALS STRING"))
+                    || ((tokens.get(i).length() >= 4 && tokens.get(i + 2).length() >= 5) && (tokens.get(i).substring(0, 3) + " " + tokens.get(i + 1) + " " + tokens.get(i + 2).substring(0, 4)).equals("VAR EQUALS EXPR"))
+                    || ((tokens.get(i).length() >= 4 && tokens.get(i + 2).length() >= 4) && (tokens.get(i).substring(0, 3) + " " + tokens.get(i + 1) + " " + tokens.get(i + 2).substring(0, 3)).equals("VAR EQUALS NUM"))
+                    || ((tokens.get(i).length() >= 4 && tokens.get(i + 2).length() >= 4) && (tokens.get(i).substring(0, 3) + " " + tokens.get(i + 1) + " " + tokens.get(i + 2).substring(0, 3)).equals("VAR EQUALS VAR"))) {
 
                 String varValue = tokens.get(i + 2);
                 String value = "";
@@ -153,12 +178,19 @@ public class Run {
                 doAssign(tokens.get(i).substring(4), value);
 
                 i += 3;
-            } else if ((tokens.get(i) + " " + tokens.get(i + 1).substring(0, 6) + " " + tokens.get(i + 2).substring(0, 3)).equals("INPUT STRING VAR")
-                    || (tokens.get(i) + " " + tokens.get(i + 1).substring(0, 6) + " " + tokens.get(i + 2).substring(0, 4)).equals("VAR EQUALS EXPR")
-                    || (tokens.get(i) + " " + tokens.get(i + 1).substring(0, 6) + " " + tokens.get(i + 2).substring(0, 3)).equals("VAR EQUALS NUM")
-                    || (tokens.get(i) + " " + tokens.get(i + 1).substring(0, 6) + " " + tokens.get(i + 2).substring(0, 3)).equals("VAR EQUALS VAR")) {
+            } else if (((tokens.get(i + 1).length() >= 7 && tokens.get(i + 2).length() >= 4)
+                    && (tokens.get(i) + " " + tokens.get(i + 1).substring(0, 6) + " " + tokens.get(i + 2).substring(0, 3)).equals("INPUT STRING VAR"))) {
                 getINPUT(tokens.get(i + 1).substring(7), tokens.get(i + 2).substring(4));
                 i += 3;
+            } else if ((tokens.get(i) + " " + tokens.get(i + 1).substring(0, 3)
+                    + " " + tokens.get(i + 2) + " " + tokens.get(i + 3).substring(0, 3)
+                    + " " + tokens.get(i + 4)).equals("IF NUM EQEQ NUM THEN")) {
+                if (tokens.get(i + 1).substring(4).equals(tokens.get(i + 3).substring(4))) {
+                    System.out.println("asdifsdfsodfas");
+                } else {
+                    System.out.println("aaaaaaaaaa");
+                }
+                i += 5;
             }
         }
     }
@@ -169,7 +201,7 @@ public class Run {
     }
 
     private static void getINPUT(String string, String varName) {
-        System.out.println(string);
+        System.out.println(string.substring(1, string.length() - 1));
         Scanner scanner = new Scanner(System.in);
         String input = scanner.nextLine();
         symbols.put(varName, "STRING:\"" + input + "\"");
